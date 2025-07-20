@@ -1,4 +1,5 @@
 const express = require('express');
+const slugify = require('slugify');
 const _ = require('lodash');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
@@ -6,13 +7,14 @@ const Blog = require('./model/blog');
 const multer = require('multer');
 const path = require('path');
 const app = express()
+const fs = require('fs')
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        cb(null, path.join(__dirname, 'uploads'));
     },
     filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname)); // نام فایل
+        cb(null, Date.now() + path.extname(file.originalname));
     }
 });
 
@@ -53,29 +55,57 @@ app.get('/all-blog' , (req, res) => {
 app.get('/delete-all-blogs', (req, res) => {
     Blog.deleteMany({})
         .then((result) => {
-            res.send({ message: 'All blogs deleted successfully' });
+            const uploadsDir = path.join(__dirname, 'uploads');
+
+            fs.readdir(uploadsDir, (err, files) => {
+                if (err) {
+                    console.error('خطا در خواندن پوشه uploads:', err);
+                    return res.status(500).send({ message: 'خطا در پاک کردن فایل‌ها' });
+                }
+
+                // حذف هر فایل به صورت جداگانه
+                files.forEach(file => {
+                    const filePath = path.join(uploadsDir, file);
+                    fs.unlink(filePath, err => {
+                        if (err) console.error('خطا در حذف فایل:', filePath, err);
+                    });
+                });
+
+                res.send({ message: 'تمام بلاگ‌ها و تصاویر مربوطه حذف شدند.' });
+            });
         })
-        .catch((err) => res.send(err));
-})
+        .catch((err) => {
+            console.error(err);
+            res.status(500).send({ message: 'خطا در حذف بلاگ‌ها' });
+        });
+});
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.post('/blogs', upload.single('image'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).send('No image uploaded');
+    }
+    const imagePath = '/uploads/' + req.file.filename;
+
     const newBlog = new Blog({
         title: req.body.title,
         snippet: req.body.snippet,
         body: req.body.body,
-        image: req.file.path,    
-        persianDate: req.body.persianDate
+        image: imagePath,
+        persianDate: req.body.persianDate,
+        category: req.body.category,
+        slug: slugify(req.body.title, { lower: true })
     });
 
     newBlog.save()
-        .then((result) => {
-            res.redirect('/blogs');
-        })
-        .catch((err) => console.log(err));
-    
-    console.log(req.body);
+        .then(() => res.redirect('/blogs'))
+        .catch(err => console.log(err));
 });
 
+
+app.get('/index', (req, res)=>{
+    res.render('index', {title : 'Home'})
+})
 app.get('/', (req, res)=>{
     res.render('index', {title : 'Home'})
 })
@@ -96,25 +126,96 @@ app.get('/blogs', (req, res) => {
         })
         .catch((err) => console.log(err));
 });
-
-app.get('/blogs/:id', (req, res) => {
-    const id = req.params.id; 
-    Blog.findById(id) 
+app.get('/blogs/:slug', (req, res) => {
+    const slug = req.params.slug; 
+    Blog.findOne({ slug: slug })  
         .then((result) => {
             if (result) {
-                res.render('blog-single', { blog: result }); // ارسال پست به view
+                res.render('blog-single', { blog: result });
             } else {
-                res.status(404).render('404', { title: 'Post Not Found' }); // اگر پست پیدا نشد
+                res.status(404).render('404', { title: 'Post Not Found' });
             }
         })
         .catch((err) => console.log(err));
 });
+
+
 app.get('/send',(req,res)=>{
     res.render('send')
 })
 
+app.get('/blogs/edit/slug/:slug', (req, res) => {
+    const slug = req.params.slug;
+    Blog.findOne({ slug: slug })
+        .then(blog => {
+            if (!blog) {
+                return res.status(404).render('404', { title: 'Post Not Found' });
+            }
+            res.render('edit-blog', { blog });
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(500).send('Error retrieving blog');
+        });
+});
+
+
+app.post('/blogs/edit/:slug', upload.single('image'), (req, res) => {
+    const slug = req.params.slug;
+
+    Blog.findOne({ slug: slug })
+        .then(blog => {
+            if (!blog) {
+                return res.status(404).render('404', { title: 'Post Not Found' });
+            }
+
+            blog.title = req.body.title;
+            blog.snippet = req.body.snippet;
+            blog.body = req.body.body;
+            blog.category = req.body.category;
+            blog.slug = slugify(req.body.title, { lower: true });
+
+            if (req.file) {
+                blog.image = req.file.path;
+            }
+
+            return blog.save();
+        })
+        .then(() => {
+            res.redirect('/blogs/' + slugify(req.body.title, { lower: true }));
+        })
+        .catch(err => {
+            console.log(err);
+            res.status(500).send('Error updating blog');
+        });
+});
+
+
+app.get('/blog-single', (req, res) => {
+    const dummyBlog = {
+        title: "نمونه پست",
+        image: "/uploads/sample.jpg",
+        body: "محتوای تستی",
+        snippet: "توضیح کوتاه"
+    };
+    res.render('blog-single', { blog: dummyBlog });
+});
+
+
+app.get('/elements',(req,res)=>{
+    res.render('elements')
+})
+
+app.get('/contact',(req,res)=>{
+    res.render('contact')
+})
+
 app.get('/about-us', (req, res)=>{
     res.redirect('/about');
+})
+
+app.get('/index', (req, res)=>{
+    res.redirect('/');
 })
 
 app.use((req, res)=>{

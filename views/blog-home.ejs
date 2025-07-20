@@ -91,7 +91,7 @@
 											<li><a href="#"><%= blog.category %>,</a></li>
 										</ul>
 										<div class="user-details row">
-											<p class="user-name col-lg-12 col-md-12 col-6"><a href="#"><%= blog.author %></a> <span class="lnr lnr-user"></span></p>
+											<p class="user-name col-lg-12 col-md-12 col-6"><a href="#">ali alavi</a> <span class="lnr lnr-user"></span></p>
 											<p class="date col-lg-12 col-md-12 col-6"><a href="#"><%= blog.persianDate %></a> <span class="lnr lnr-calendar-full"></span></p>
 											<p class="view col-lg-12 col-md-12 col-6"><a href="#">1.2M Views</a> <span class="lnr lnr-eye"></span></p>
 											<p class="comments col-lg-12 col-md-12 col-6"><a href="#">06 Comments</a> <span class="lnr lnr-bubble"></span></p>                        
@@ -101,11 +101,11 @@
 										<div class="feature-img">
 											<img class="img-fluid" src="<%= blog.image %>" alt="">
 										</div>
-										<a class="posts-title" href="/blogs/<%= blog._id %>"><h3><%= blog.title %></h3></a> <!-- لینک به جزئیات پست -->
+										<a class="posts-title" href="/blogs/<%= blog.slug %>"><h3><%= blog.title %></h3></a> <!-- لینک به جزئیات پست -->
 										<p class="excert">
-											<%= blog.snippet %>
+											<%= blog.body %>
 										</p>
-										<a href="/blogs/<%= blog._i ,d %>" class="primary-btn">View More</a> <!-- لینک به جزئیات پست -->
+										<a href="/blogs/<%= blog.slug %>" class="primary-btn">View More</a> <!-- لینک به جزئیات پست -->
 									</div>
 								</div>
 								<% }); %>														
